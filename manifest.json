@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "MD Viewer",
+  "version": "1.0.0",
+  "description": "Render local .md files as GitHub-style HTML with Mermaid support.",
+  "content_scripts": [
+    {
+      "matches": ["file:///*.md", "file:///*.markdown", "file:///*.md?*", "file:///*.md#*"],
+      "js": ["dist/mermaid.min.js", "dist/content.js"],
+      "css": ["dist/style.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
