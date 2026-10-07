@@ -12,10 +12,16 @@ await build({
 copyFileSync('node_modules/mermaid/dist/mermaid.min.js', 'dist/mermaid.min.js');
 
 const read = (p) => readFileSync(p, 'utf8');
+// Switch themes by html[data-theme] (set from the toggle) instead of the OS setting.
+const markdownCss = read('node_modules/github-markdown-css/github-markdown.css').replace(
+  /@media \(prefers-color-scheme: (light|dark)\) \{\n  \.markdown-body, \[data-theme="\1"\] \{/g,
+  '@media all {\n  html[data-theme="$1"] .markdown-body {',
+);
+if (markdownCss.includes('prefers-color-scheme')) throw new Error('github-markdown.css format changed');
 const css = [
-  read('node_modules/github-markdown-css/github-markdown.css'),
-  '@media (prefers-color-scheme: light) {', read('node_modules/highlight.js/styles/github.css'), '}',
-  '@media (prefers-color-scheme: dark) {', read('node_modules/highlight.js/styles/github-dark.css'), '}',
+  markdownCss,
+  'html[data-theme="light"] {', read('node_modules/highlight.js/styles/github.css'), '}',
+  'html[data-theme="dark"] {', read('node_modules/highlight.js/styles/github-dark.css'), '}',
   read('src/style.css'),
 ].join('\n');
 writeFileSync('dist/style.css', css);

@@ -3,6 +3,7 @@
   "name": "MD Viewer",
   "version": "1.0.0",
   "description": "Render local .md files as GitHub-style HTML with Mermaid support.",
+  "permissions": ["storage"],
   "content_scripts": [
     {
       "matches": ["file:///*.md", "file:///*.markdown", "file:///*.md?*", "file:///*.md#*"],

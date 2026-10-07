@@ -5,7 +5,45 @@ import DOMPurify from 'dompurify';
 
 const pre = document.body && document.body.children.length === 1 && document.body.firstElementChild;
 if (pre && pre.tagName === 'PRE' && /^text\//.test(document.contentType)) {
-  render(pre.textContent);
+  const source = pre.textContent;
+  loadTheme().then((theme) => {
+    applyTheme(theme);
+    render(source);
+  });
+}
+
+const THEME_KEY = 'theme';
+
+async function loadTheme() {
+  try {
+    const { [THEME_KEY]: saved } = await chrome.storage.local.get(THEME_KEY);
+    if (saved === 'light' || saved === 'dark') return saved;
+  } catch {}
+  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const btn = document.getElementById('mdv-theme-toggle');
+  if (btn) {
+    btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+    btn.title = theme === 'dark' ? 'ライトテーマに切替' : 'ダークテーマに切替';
+  }
+}
+
+function createToggle() {
+  const btn = document.createElement('button');
+  btn.id = 'mdv-theme-toggle';
+  btn.type = 'button';
+  btn.addEventListener('click', async () => {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    try {
+      await chrome.storage.local.set({ [THEME_KEY]: next });
+    } catch {}
+    renderMermaid();
+  });
+  return btn;
 }
 
 function slugger() {
@@ -61,26 +99,34 @@ async function render(source) {
   const h1 = article.querySelector('h1');
   const name = decodeURIComponent(location.pathname.split('/').pop() || '');
   document.title = h1 ? h1.textContent : name;
-  document.body.replaceChildren(article);
+  article.querySelectorAll('pre.mermaid').forEach((el) => {
+    el.dataset.mermaidSrc = el.textContent;
+  });
+  document.body.replaceChildren(createToggle(), article);
+  applyTheme(document.documentElement.dataset.theme);
   if (location.hash) {
     const el = document.getElementById(decodeURIComponent(location.hash.slice(1)));
     if (el) el.scrollIntoView();
   }
 
-  const blocks = article.querySelectorAll('pre.mermaid');
-  if (blocks.length && window.mermaid) {
-    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
-    window.mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'default', securityLevel: 'strict' });
-    for (const el of blocks) {
-      const code = el.textContent;
-      try {
-        await window.mermaid.run({ nodes: [el] });
-      } catch (e) {
-        const err = document.createElement('pre');
-        err.className = 'mermaid-error';
-        err.textContent = `Mermaid error: ${e && e.message ? e.message : e}\n\n${code}`;
-        el.replaceWith(err);
-      }
+  renderMermaid();
+}
+
+async function renderMermaid() {
+  const blocks = document.querySelectorAll('[data-mermaid-src]');
+  if (!blocks.length || !window.mermaid) return;
+  const dark = document.documentElement.dataset.theme === 'dark';
+  window.mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'default', securityLevel: 'strict' });
+  for (const el of blocks) {
+    const code = el.dataset.mermaidSrc;
+    el.className = 'mermaid';
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+    try {
+      await window.mermaid.run({ nodes: [el] });
+    } catch (e) {
+      el.className = 'mermaid-error';
+      el.textContent = `Mermaid error: ${e && e.message ? e.message : e}\n\n${code}`;
     }
   }
 }
